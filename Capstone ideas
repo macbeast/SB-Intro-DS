@@ -1,0 +1,10 @@
+1. Use the data from Go Jauntly
+The data available is quite messy. Includes downloads, comments and ratings in the iOS store, and user activity. The quesion could focus on using the data to identify audiences that Go Jauntly is not attracting yet. 
+
+2. Cricket (data is available but at a cost of $4.99/month)
+England lost the Ashes in Australia this year. But they have won it. What is the most likely combination of team (spinners, fast bowlers, batsmen, all rounders) that will win the Ashes? Further work would factor in the Austrailian team make up and the pitches played on. 
+
+3. Energy (data should be available on Gov website but potentially too clean?)
+Will the UK meet its goal to be powered by 30% renewable electricity by 2020?
+Analysis of electricity generation mix and extrapolate forwards. 
+Further work would look at energy overall, not just electricity and energy efficiency as well as generation.
