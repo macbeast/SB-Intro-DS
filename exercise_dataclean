@@ -1,0 +1,19 @@
+
+#Imported the raw data set as a .csv#
+
+refine_originalmac <- read_csv("Downloads/refine_originalmac.csv")
+
+#First task, clean up the company name spellings. 
+#Using gsub to find regular expressions in each name and replace with the right name
+
+refine_originalmac$companynew <- gsub(pattern = ".*li.*", replacement = "phillips", x = refine_originalmac$company, ignore.case = TRUE)
+
+refine_originalmac$companynew1 <- gsub(pattern = "ak.*z.*", replacement = "akzo", x = refine_originalmac$company, ignore.case = TRUE)
+
+refine_originalmac$companynew2 <- gsub(pattern = ".*nil.*", replacement = "unilever", x = refine_originalmac$company, ignore.case = TRUE)
+
+#This is working but it results in the creation of 3 different columns where only one company name is correct
+
+#make all lower case
+
+lowercase(companynew)
