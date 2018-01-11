@@ -14,6 +14,11 @@ refine_originalmac$companynew2 <- gsub(pattern = ".*nil.*", replacement = "unile
 
 #This is working but it results in the creation of 3 different columns where only one company name is correct
 
-#make all lower case
+#Then tried using pipe function but it throws an error - if this can work it would be better as it's neater
 
-lowercase(companynew)
+refine_originalmac$companynew <- refine_originalmac dplyr::%>% gsub(pattern = ".*li.*", replacement = "phillips", ignore.case = TRUE)
+                                                    dplyr::%>% gsub(pattern = "ak.*z.*", replacement = "akzo", ignore.case = TRUE)
+                                                    dplyr::%>% gsub(pattern = ".*nil.*", replacement = "unilever", ignore.case = TRUE)
+
+Error: unexpected SPECIAL in "                                                    dplyr::%>%"
+
