@@ -22,3 +22,12 @@ refine_originalmac$companynew <- refine_originalmac dplyr::%>% gsub(pattern = ".
 
 Error: unexpected SPECIAL in "                                                    dplyr::%>%"
 
+
+#Separate product code and number into two new columns - can mutate work? If the function pull the numeric from the original column? 
+#I want a function that extracts firstly a numeric and secondly a string
+#Why is it not recognising the function separate? Also, it doesn't recognise function %>%
+
+separate(refine_originalmac, `Product code / number`, c('product_code', 'product_number'))
+
+#To add in a new column that assigns full product category, use mutate function
+
