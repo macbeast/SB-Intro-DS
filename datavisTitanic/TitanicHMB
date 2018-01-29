@@ -1,18 +1,33 @@
-# titanic is avaliable in your workspace# 1 - Check the structure of titanicstr(titanic)
-# 2 - Use ggplot() for the first instruction
+# titanic is avaliable in your workspace# 1 - Check the structure of titanic
+
+str(titanic)
+
+#This shows me there are 4 variables - Age (number) /Sex (as a factor) / PClass and Survived (both int).
+
+# 2 - Use ggplot() for the first instruction - this is a fairly simple look at numbers of each sex in each class
+#Women fairly even across each class, a lot more men in third class but a lot more men in general
 
 ggplot(titanic, aes(x = Pclass, fill = Sex)) +  geom_bar(position = "dodge")
 
-# 3 - Plot 2, add facet_grid() layer
+# 3 - Plot 2, add facet_grid() layer - this splits out those who survived and those who didn't with zero being those who didn't
+#Crikey - you are a lot more likely to survive if you are a female! I took a quick look at a simple histogram just to check that:
 
 ggplot(titanic, aes(x = Pclass, fill = Sex)) +  
 geom_bar(position = "dodge") +   
 facet_grid(.~ Survived)
 
+#My extra simple histogram - looks like about 58 women died whilst 200 survived. 
+#Compared to men where 360ish died and just under 100 survived: 
+
+ggplot(titanic, aes(x = Survived, col = Sex, fill = Sex)) + 
+geom_bar(position = "dodge")
+
 # 4 - Define an object for position jitterdodge, to use below
 posn.jd <- position_jitterdodge(0.5, 0, 0.6)
 
 # 5 - Plot 3, but use the position object from instruction 4
+#I can see how this really easily enables me to see that, as a female I am more likely to have survived than a male. 
+# Age doesn't seem to have as much bearing on it as Pclass either. 
 
 ggplot(titanic, aes(x = Pclass, y = Age, col = Sex)) +  
 geom_point(size = 3, alpha = 0.5, position = posn.jd) +   
