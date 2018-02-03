@@ -9,4 +9,6 @@ The resulting clean data that I created was written to a new csv file which is a
 
 I did find myself using techniques outside of the course materials, with the help of Stack Overflow! The most useful thing in my opinion was installing dummies. Reduced my original method of creating dummy variables from a line of code per unique value (4 each time) to just one line of code. 
 
+And I have one question left (perhaps because I have just been working on ggplots a lot) - does it matter that the dummies are all integers rather than factors? Would it be better practice to have turned them to factors? 
+
 It was pretty painful going - I will not lie - BUT what a great way to learn and test all the things that I have done. 
