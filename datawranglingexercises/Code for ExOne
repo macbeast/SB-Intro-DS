@@ -6,6 +6,10 @@ library(dummies)
 
 refine_originalmac <- read.csv("~/Downloads/refine_originalmac.csv")
 
+#Took a look at the data
+
+str(refine_originalmac)
+
 #First task, clean up the company name spellings. 
 #Using gsub to find regexs in each name and replace with the right name
 
@@ -53,3 +57,11 @@ refine_originalmac <- bind_cols(refine_originalmac, companydummy, categorydummy)
 
 refine_clean <- refine_originalmac
 write.csv(refine_clean, 'refine_clean.csv')
+
+#I checked the structure of the cleaned up data set
+
+str(refine_clean)
+
+#occurs to me that the dummies are integers, not factors. Does this matter?
+
+
