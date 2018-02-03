@@ -1,0 +1,56 @@
+
+library(dplyr)
+library(tidyr)
+library(dummies)
+
+#Imported the raw data set as a .csv#
+
+refine_originalmac <- read.csv("~/Downloads/refine_originalmac.csv")
+
+#First task, clean up the company name spellings. 
+#Using gsub to find regexs in each name and replace with the right name
+
+refine_originalmac <- refine_originalmac %>% mutate(
+  company = gsub(pattern = ".*l.*p.*", replacement = "phillips", ignore.case = TRUE, x = company), 
+  company = gsub(pattern = ".*ak.*z.*", replacement = "akzo", ignore.case = TRUE, x = company),
+  company = gsub(pattern = "va.*en", replacement = "van houten", ignore.case = TRUE, x = company), 
+  company = gsub(pattern = ".*nil.*", replacement = "unilever", ignore.case = TRUE, x = company))
+
+#Separate product code and number into two new columns
+
+refine_originalmac <- refine_originalmac %>% separate( `Product.code...number`, c('product_code', 'product_number'))
+
+#To add in a new column that assigns full product category, use mutate function
+
+refine_originalmac$product_category <- refine_originalmac$product_code
+
+refine_originalmac <- refine_originalmac %>% mutate(
+  product_category = gsub(pattern = "p", replacement = "Smartphone", x = product_category),
+  product_category = gsub(pattern = "v", replacement = "TV", x = product_category), 
+  product_category = gsub(pattern = "x", replacement = "Laptop", x = product_category),
+  product_category = gsub(pattern = "q", replacement = "Tablet", x = product_category))
+
+#To merge the address columns together, use paste
+
+refine_originalmac$full_address <- paste(refine_originalmac$address, refine_originalmac$city, refine_originalmac$country, sep = ", ")
+
+#create dummy variables for company and product category
+#I've discovered and installed dummies which does this in a really easy and neat way.
+
+companydummy <- data.frame(dummy(refine_originalmac$company))
+categorydummy <- data.frame(dummy(refine_originalmac$product_category))  
+
+#I renamed the columns as per the exercise
+
+colnames(companydummy) <- c("company_akzo", "company_phillips", "company_unilever", "company_van_houten")
+colnames(categorydummy) <- c("product_laptop", "product_smartphone", "product_tablet", "product_tv")
+
+#Then I used bind_cols to put them all together. 
+#I realised after a few mistakes that I needed to wrap the company and category dummies as data frames as bind_cols only works on data frames. 
+
+refine_originalmac <- bind_cols(refine_originalmac, companydummy, categorydummy)
+
+#write the resulting data to a new csv file
+
+refine_clean <- refine_originalmac
+write.csv(refine_clean, 'refine_clean.csv')
