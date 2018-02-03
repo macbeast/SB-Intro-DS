@@ -11,7 +11,7 @@ refine_originalmac <- read.csv("~/Downloads/refine_originalmac.csv")
 str(refine_originalmac)
 
 #First task, clean up the company name spellings. 
-#Using gsub to find regexs in each name and replace with the right name
+#I used regexr.com to create regexs for gsub functions for each name and replaced with the right name in the original company column
 
 refine_originalmac <- refine_originalmac %>% mutate(
   company = gsub(pattern = ".*l.*p.*", replacement = "phillips", ignore.case = TRUE, x = company), 
@@ -19,13 +19,15 @@ refine_originalmac <- refine_originalmac %>% mutate(
   company = gsub(pattern = "va.*en", replacement = "van houten", ignore.case = TRUE, x = company), 
   company = gsub(pattern = ".*nil.*", replacement = "unilever", ignore.case = TRUE, x = company))
 
-#Separate product code and number into two new columns
+#I then separated product code and number into two new columns using the separate function
 
-refine_originalmac <- refine_originalmac %>% separate( `Product.code...number`, c('product_code', 'product_number'))
+refine_originalmac <- refine_originalmac %>% separate(`Product code / number`, c('product_code', 'product_number'), sep = '-')
 
-#To add in a new column that assigns full product category, use mutate function
+#to add in a new column that assigns full product category, I firstly created a replica of the product_code column
 
 refine_originalmac$product_category <- refine_originalmac$product_code
+
+#Then I used mutate and gsub again - this time the pattern is easier and not a regex because it's replacing one letter with the full category name
 
 refine_originalmac <- refine_originalmac %>% mutate(
   product_category = gsub(pattern = "p", replacement = "Smartphone", x = product_category),
@@ -33,12 +35,12 @@ refine_originalmac <- refine_originalmac %>% mutate(
   product_category = gsub(pattern = "x", replacement = "Laptop", x = product_category),
   product_category = gsub(pattern = "q", replacement = "Tablet", x = product_category))
 
-#To merge the address columns together, use paste
+#To merge the address columns together, I used the paste function
 
 refine_originalmac$full_address <- paste(refine_originalmac$address, refine_originalmac$city, refine_originalmac$country, sep = ", ")
 
-#create dummy variables for company and product category
-#I've discovered and installed dummies which does this in a really easy and neat way.
+#Then to create dummy variables for company and product category I used dummies, a package which I found via a google search for easy ways to create dummies
+#I realised after a few mistakes later on that I needed to wrap the company and category dummies in the data frame function as bind_cols (which I needed to do later) only works on data frames. 
 
 companydummy <- data.frame(dummy(refine_originalmac$company))
 categorydummy <- data.frame(dummy(refine_originalmac$product_category))  
@@ -49,11 +51,10 @@ colnames(companydummy) <- c("company_akzo", "company_phillips", "company_unileve
 colnames(categorydummy) <- c("product_laptop", "product_smartphone", "product_tablet", "product_tv")
 
 #Then I used bind_cols to put them all together. 
-#I realised after a few mistakes that I needed to wrap the company and category dummies as data frames as bind_cols only works on data frames. 
 
 refine_originalmac <- bind_cols(refine_originalmac, companydummy, categorydummy)
 
-#write the resulting data to a new csv file
+#Then I wrote the resulting data to a new csv file
 
 refine_clean <- refine_originalmac
 write.csv(refine_clean, 'refine_clean.csv')
@@ -63,5 +64,3 @@ write.csv(refine_clean, 'refine_clean.csv')
 str(refine_clean)
 
 #occurs to me that the dummies are integers, not factors. Does this matter?
-
-
