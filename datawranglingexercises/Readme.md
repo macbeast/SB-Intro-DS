@@ -1,7 +1,7 @@
 
-First exercise in the Springboard data wrangling module. 
+First exercise in the Springboard data wrangling module - cleaning up the electronic products data.  
 
-I imported the raw csv as refine_originalmac
+I imported the raw csv as refine_originalmac - data frame, 25 obs. of 17 variables
 
 The code I have used to complete the exercises is included in one document. 
 
