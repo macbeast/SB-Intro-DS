@@ -1,0 +1,30 @@
+library(dplyr)
+
+titanic_raw <- read.csv("~/Downloads/titanic3.csv")
+
+#Firstly, examine the data frame
+str(titanic_raw)
+
+#Replace blank ports of embarkation with "S" - embarked is a factor with 4 levels and the emply ones are ""
+titanic_raw$embarked_replace <- factor(gsub(pattern = "^$", replacement = "S", x = titanic_raw$embarked))
+
+#Replace missing ages with the mean age
+#The below works but is not very elegant - is there not a way to use mutate funciton to create new column and replace NA with 30?
+
+titanic_raw$age_with_mean <- titanic_raw$age
+titanic_raw$age_with_mean[is.na(titanic_raw$age)] <- mean(x = titanic_raw$age, na.rm = TRUE)
+
+#Other ways to replace the mean - median? Mode? Mean of differen groups? MICE?
+
+#Replace blank values in the boat column with "NA" - this works so does "^$" just mean a blank space?
+
+titanic_raw$boat_with_NA <- factor(gsub(pattern = "^$", replacement = NA, x = titanic_raw$boat))
+
+#Create a new column that has 1 if the person has a cabin number and 0 if not - again, not wokring, is there an issue in my ifelse statement? It's because cabins are a factor
+
+titanic_raw$has_cabin_number <- titanic_raw$cabin
+levels(titanic_raw$has_cabin_number)[1] <- 0
+levels(titanic_raw$has_cabin_number)[2:187] <- 1
+
+titanic_clean <- titanic_raw
+write.csv(titanic_clean, 'titanic_clean.csv')
