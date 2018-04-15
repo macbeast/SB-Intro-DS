@@ -14,15 +14,18 @@ titanic_raw$embarked_replace <- (gsub(pattern = "^$", replacement = "S", x = tit
 titanic_raw$age_with_mean <- titanic_raw$age
 titanic_raw$age_with_mean[is.na(titanic_raw$age)] <- mean(x = titanic_raw$age, na.rm = TRUE)
 
-#Other ways to replace the mean - median? Mode? Mean of differen groups? MICE?
+#Other ways to replace the mean - median? Mode? Mean of different groups? The first two would be misleading but there may be some merit in finding the mean of subgroups to give a more accurate representation of the missing ages. 
 
-#Replace blank values in the boat column with "NA" - this works so does "^$" just mean a blank space?
+#Replace blank values in the boat column with "NA"
 
 titanic_raw$boat_with_NA <- (gsub(pattern = "^$", replacement = NA, x = titanic_raw$boat))
 
 #Create a new column that has 1 if the person has a cabin number and 0 if not 
 #I am going to create an ifelse statement to count whether or not there are any charaters in cabin number. 
 #So I have to turn the cabin column into a column of characters rather than factors
+#The question of what a missing cabin number means and whether it's worth replacing the blank slots. I would say it's misleading to replace the cabin numbers. There's no easy way to find a mean number here. 
+#Additionally, the absence of a cabin number may indiacate someone in a lower class of berth (ie not in a cabin) which may correlate to survival rates (ie if someone has a number they were more likely to survive)
+#So if you replaced blank cabin numbers with a value, you would lose the ability to check if having a cabin number impacts chance of survival
 
 titanic_raw$cabin_number_char <- as.character(titanic_raw$cabin)
 
