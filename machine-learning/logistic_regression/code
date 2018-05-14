@@ -113,12 +113,12 @@ levels(NH11$r_maritl) # check levels of r_maritl
 
 NH11$everwrk <- factor(NH11$everwrk, levels=c("2 No", "1 Yes")) #Turn ever worked into only 2 level factor in order to run model
 NH11$r_maritl <- factor(NH11$r_maritl, levels=c("8 living with partner", "7 Never married", "6 Separated", "5 Divorced", "4Widowed", "3 Married - spouse in household unknown", "2 Married - spouse not in household", "1 Married - spouse in household", "0 Under 14 years"))
+#Also turn r_maritl into a factor in order to run model
 
 
-
-everwrk.out <- glm(everwrk~age_p+r_maritl,  #logistic regression model 
-    data=NH11, family="binomial")
-coef(summary(everwrk.out))
+everwrk.out <- glm(everwrk~age_p+r_maritl,  # create the logistic regression model
+    data=NH11, family="binomial") 
+coef(summary(everwrk.out)) #examine coefficients
 
 #Convert the outputs to non log numbers to interpret
 
@@ -132,7 +132,9 @@ everwrk.out.tab
 ##  Create a dataset with predictors set at desired levels of marital status
 predeverwrk <- with(NH11,
                 expand.grid(r_maritl = c("6 Separated", "5 Divorced", "2 Married - spouse not in household", "1 Married - spouse in household")))
-# predict ever worked at those levels
+# I chose these levels because they are the only ones that appear in the outputs of the model
+
+#predict ever worked at those levels
 everwrk.out1 <- glm(everwrk~r_maritl,  #logistic regression model 
                   data=NH11, family="binomial")
 coef(summary(everwrk.out1))
@@ -140,6 +142,10 @@ coef(summary(everwrk.out1))
 cbind(predeverwrk, predict(everwrk.out1, type = "response",
                        se.fit = TRUE, interval="confidence",
                        newdata = predeverwrk))
+
+##   Model shows that there is a high chance that all people with one of those 4 marital statuses have worked
+##   Separated 88%, Divorced 94%, Married, spouse not in household 88% and Married, spouse in household 89%
+##   One could conclude that the more likely you are to be in work, the higher chance of divorce! Perhaps divorce driven by a partner working too hard.....
 
 ##   Note that the data is not perfectly clean and ready to be modeled. You
 ##   will need to clean up at least some of the variables before fitting
