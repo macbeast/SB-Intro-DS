@@ -242,15 +242,13 @@ coef(summary(lm(csat ~ C(region, contr.helmert),
 ##   1. Add on to the regression equation that you created in exercise 1 by
 ##      generating an interaction term and testing the interaction.
 
-state.energy.model.interaction <- lm(energy ~ metro*area, data = states.data)
-coef(summary(state.energy.model.interaction))
+state.energy.model5 <- lm(energy ~ metro*area, data = states.data)
+summary(state.energy.model5)
 
+##   2. Try adding region to the model. Are there significant differences
+##      across the four regions?
 
-##   2. Try adding region to the model. 
+state.energy.model6 <- lm(energy ~ metro*area + region, data = states.data)
+summary(state.energy.model6)
 
-##Already turned region into a factor so continue with model
-energy.region <- lm(energy ~ region,
-                 data=states.data) 
-summary(energy.region)
-
-##Are there significant differences across the four regions? Yes, there are as coeffs are different
+#It looks as if there is no difference between the regions as the coefficients are not signifianct in the model. 
