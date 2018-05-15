@@ -55,7 +55,7 @@ cor(sts.ex.sat)
 ##   relationships etc.
 
 # scatter plot of expense vs csat
-plot(sts.ex.sat)
+plot(sts.ex.sat) #plot1 in my files
 
 ## Linear regression example
 ## ─────────────────────────────
@@ -97,7 +97,7 @@ methods(class = class(sat.mod))[1:9]
 ##   • Use function methods to get more information about the fit
 
 confint(sat.mod) #this gives the confidence intervals for the model parameters
-hist(residuals(sat.mod)) #this creates a histogram of the residuals
+hist(residuals(sat.mod)) #this creates a histogram of the residuals #plot 2 in my files
 
 ## Linear Regression Assumptions
 ## ─────────────────────────────────
@@ -110,7 +110,7 @@ hist(residuals(sat.mod)) #this creates a histogram of the residuals
 ##   • Investigate these assumptions visually by plotting your model:
 
 par(mar = c(4, 4, 2, 2), mfrow = c(1, 2)) #optional
-plot(sat.mod, which = c(1, 2)) # "which" argument optional
+plot(sat.mod, which = c(1, 2)) # "which" argument optional. plot 3 in my files
 
 ## Comparing models
 ## ────────────────────
@@ -127,6 +127,7 @@ sat.mod <- update(sat.mod, data=na.omit(states.data))
 anova(sat.mod, sat.voting.mod)
 coef(summary(sat.voting.mod))
 
+#Looks like house is significant but not senate when it comes to the second model.
 ## Exercise: least squares regression
 ## ────────────────────────────────────────
 
@@ -137,17 +138,19 @@ coef(summary(sat.voting.mod))
 ##   2. Print and interpret the model `summary'
 ##   3. `plot' the model to look for deviations from modeling assumptions
 
-# As above, take alook at the relevant columns first and see if there's correlation
+str(states.data) #Take a look at the structure of the states data to see what variables there are
+
+# Also, as above, take a look at the relevant columns first and see if there's correlation
 
 states.energy.metro <- subset(states.data, select = c("energy", "metro"))
 summary(states.energy.metro)
 cor(states.energy.metro)
-plot(states.energy.metro)
+plot(states.energy.metro) #plot 4 in my files
 
 # then create linear model, examine coefficients and plot
 state.energy.model <- lm(energy ~ metro, data = states.data)
 summary(state.energy.model)
-plot(state.energy.model)
+plot(state.energy.model) #plot 5 in my files (checking residuals)
 hist(residuals(state.energy.model))
 
 ##   Select one or more additional predictors to add to your model and
@@ -159,19 +162,19 @@ str(states.data)
 #second model, add in region as well
 state.energy.model2 <- lm(energy ~ metro + region, data = states.data)
 summary(state.energy.model2)
-plot(state.energy.model2)
+plot(state.energy.model2) #plot 6 in my files
 hist(residuals(state.energy.model2))
 
 #third model, add in area as well as region
 state.energy.model3 <- lm(energy ~ metro + area + region, data = states.data)
 summary(state.energy.model3)
-plot(state.energy.model3)
+plot(state.energy.model3) #plot 7 in my files
 hist(residuals(state.energy.model3))
 
 #fourth model, keep in area but get rid of region
 state.energy.model4 <- lm(energy ~ metro + area, data = states.data)
 summary(state.energy.model4)
-plot(state.energy.model4)
+plot(state.energy.model4) #plot 8 in my files
 hist(residuals(state.energy.model4))
 
 ##If comparing adjusted R-squared values, all the other models are better: first model, it's 0.097
