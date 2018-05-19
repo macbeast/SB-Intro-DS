@@ -1,0 +1,405 @@
+library(sparklyr)
+library(DBI)
+library(dplyr)
+library(ggplot2)
+library(nlme)
+
+
+#Create a connection to the GSK RDIP platform
+config <- spark_config()
+config$"sparklyr.shell.executor-memory" <- "10g"
+config$"sparklyr.shell.driver-memory" <- "10g"
+config$spark.executor.memory <- "10g"
+config$spark.yarn.am.memory <- "10g"
+
+con <- spark_connect(
+  master = "yarn-client",
+  spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
+  version = "2.1.0",
+  config = config
+)
+
+#Take a look at the databases on the platform and identify the tables that are needed in the correct database (clntrl_e)
+dbGetQuery(con, "show databases like 'clntrl*'")
+#                   databaseName
+# 1                       clntrl
+# 2              clntrl_baseline
+# 3            clntrl_baseline_e
+# 4                     clntrl_e
+# 5                   clntrl_ops
+# ...
+
+
+dbGetQuery(con, "show tables in clntrl_e")
+#    database                    tableName isTemporary
+# 1  clntrl_e t_anon_int_sdtm_dm_21jul2017       FALSE
+# 2  clntrl_e t_anon_int_sdtm_ds_25sep2017       FALSE
+# 3  clntrl_e t_anon_int_sdtm_dv_25sep2017       FALSE
+# 4  clntrl_e t_anon_int_sdtm_lb_25sep2017       FALSE
+# 5  clntrl_e t_anon_int_sdtm_re_25sep2017       FALSE
+# 6  clntrl_e t_anon_int_sdtm_sv_25sep2017       FALSE
+# 7  clntrl_e     t_anon_sdtm_dm_21jul2017       FALSE
+# 8  clntrl_e     t_anon_sdtm_ds_25sep2017       FALSE
+# 9  clntrl_e     t_anon_sdtm_dv_25sep2017       FALSE
+# 10 clntrl_e     t_anon_sdtm_lb_25sep2017       FALSE
+# ...
+
+
+#Get a feel for the size of the tables:
+
+dbGetQuery(con, "
+  select count(*)
+           from clntrl_e.t_anon_int_sdtm_lb_25sep2017
+           ")
+#   count(1)
+# 1  2349886
+
+dbGetQuery(con, "
+  select count(*)
+           from clntrl_e.t_anon_int_sdtm_dm_21jul2017
+           ")
+#count(1)
+# 1    86925
+
+#Check how many of the rows are a Glucose test
+
+dbGetQuery(con, "
+           select count(*) as n
+           from clntrl_e.t_anon_int_sdtm_lb_25sep2017
+           where lbtest = 'Glucose'
+           ")
+#       n
+# 1 92585
+
+#Create a dataframe in R of only Glucose tests from the lb table
+
+investigate_variables <- dbGetQuery(con, "
+                select *
+                from clntrl_e.t_anon_int_sdtm_lb_25sep2017
+                where lbtest = 'Glucose'
+")
+
+#Filter out variables that are not required (including where glucose test has been conducted in Urine)
+
+investigate_variables_reduced <- investigate_variables %>%
+  
+select(
+  studyid, usubjid,
+  lbdy, lbdtc, visit,
+  lbtest, lbspec,
+  lborres, lborresu,
+  lbstresn, lbstresu, lbstnrlo, lbstnrhi,
+  so_therapy_area, so_indications,
+  so_study_phase, so_abbreviated_title
+  ) %>%
+  collect() %>%
+  filter(lbspec != "URINE") 
+
+## Look at how many studies there are and how many patients are in each one
+
+table1 <-                       
+investigate_variables_reduced %>% select(so_therapy_area, so_indications, so_study_phase, studyid, usubjid) %>% 
+  distinct() %>% 
+  count(so_therapy_area, so_indications, so_study_phase, studyid)
+
+#look to see if there are issues with key variables: glucose (lbstresn) and lab visit day (lbdy):
+
+summary(investigate_variables_reduced$lbdy)
+#Min.    1st Qu.     Median       Mean    3rd Qu.       Max. 
+#-3.403e+38 -6.000e+00  5.800e+01 -1.605e+37  1.650e+02  4.480e+02 
+
+summary(investigate_variables_reduced$lbstresn)
+#Min.    1st Qu.     Median       Mean    3rd Qu.       Max. 
+#-3.403e+38  5.000e+00  5.000e+00 -7.095e+34  6.000e+00  2.160e+02 
+
+#There are clearly some issues with large and small values so these will need to be filtered out. 
+
+##Identifying the phase 3 studies and getting rid of mixed dosing
+
+#See how many different types of phase there are in the dataframe
+
+unique(investigate_variables_reduced$so_study_phase) 
+# "PHASE IIB"  "PHASE I"    "PHASE IIIA" "PHASE IIA"  "PHASE IIIB"
+
+#Create two dataframes, one of Phase IIIA, one of Phase IIIB
+
+P3A <- investigate_variables_reduced %>%  
+          filter(so_study_phase == "PHASE IIIA")
+            
+P3B <- investigate_variables_reduced %>%  
+      filter(so_study_phase == "PHASE IIIB")
+
+#Collect the study IDs for these Phase 3 trials:
+
+P3Aids <- summarise(P3A, n_distinct(studyid)) 
+P3Bids <- summarise(P3B, n_distinct(studyid)) 
+
+#Cross check these trial IDs on the clinicaltrials.gov website to see if they are mixed dosing
+#Create a vector of trial IDs that are not mixed dosing
+
+P3Trials <- c("200109", "HZA113714", "HZA113719", "AC4115408", "DB2113359", "DB2113373", "DB2113374", "DB2114634", "HZA116863", "HZC102871", "HZC102970", "HZC112206", "112207", "HZC113684")
+
+#Remove the mixed dosing trials from the dataframe: 
+Ph3dataframe <- investigate_variables_reduced[investigate_variables_reduced$studyid %in% P3Trials, ]
+
+##Add on demographic data 
+#The dm table sits on RDIP so the Phase III dataframe has to be written onto the platform in order to carry out the join
+
+#create table from dataframe 
+dbWriteTable(con, "Ph3table", Ph3dataframe)
+
+#Then bring both into R to do join
+dm <- tbl(con, "clntrl_e.t_anon_int_sdtm_dm_21jul2017")
+lb <- tbl(con, "Ph3table")
+
+#Join using studyid and usubjid - we want patient demographic data to be matched up to them in the Phase III dataframe
+#The match needs to be made on the study ID and on the patient ID (usubjid)
+
+Ph3join <- lb %>% 
+  left_join(dm, by = c("studyid", "usubjid")) %>%
+  collect()
+
+#Get rid of the unrequired variables from the dm table
+
+df <- Ph3join  %>% select(
+  studyid, usubjid,
+  sex,
+  age, ageu,
+  actarm,
+  rfxstdtc, rfxendtc,
+  lbdy, lbdtc, visit,
+  lbtest, lbspec,
+  lborres, lborresu,
+  lbstresn, lbstresu, lbstnrlo, lbstnrhi,
+  so_therapy_area, so_indications,
+  so_study_phase, so_abbreviated_title
+) %>%
+  collect() %>%
+  filter(lbdy > -300) %>% # filtering out strange values that were identified in the lab day
+  filter(lbstresn > -1)   # filtering out strange values that were identified in the glucose test
+
+#Check there's no NA values
+df %>% 
+  summarise(
+    n = n(),
+    lbdy_na = sum(is.na(lbdy)),
+    lbstresn_na = sum(is.na(lbstresn)),
+    actarm_na = sum(is.na(actarm))
+  )
+
+#Check to see if the two main variables now look as if they are in a sensible range
+
+df %>% 
+  ggplot(aes(lbdy, "")) +
+  geom_jitter(alpha = 0.25)
+
+df %>% 
+  ggplot(aes(lbdy)) +
+  geom_density()
+
+df %>% 
+  ggplot(aes(lbstresn, "")) +
+  geom_jitter(alpha = 0.25)
+
+df %>% 
+  ggplot(aes(lbstresn)) +
+  geom_density()
+
+
+#Pick the three trials with the most patients for investigation
+table2 <-                       
+  df %>% select(so_therapy_area, so_indications, so_study_phase, studyid, usubjid) %>% 
+  distinct() %>% 
+  count(so_therapy_area, so_indications, so_study_phase, studyid)
+
+Trial1 <- df %>% 
+  filter(studyid == "DB2113373")
+
+Trial2 <- df %>% 
+  filter(studyid == "HZC102970")
+
+Trial3 <- df %>% 
+  filter(studyid == "HZC102871")
+
+#Take a look at the glucose measurements in each arm of the trials
+
+Trial1 %>% 
+  ggplot(aes(lbdy, lbstresn)) +
+  geom_point(size = 0.5, alpha = 0.25) +
+  geom_line(aes(group = usubjid), alpha = 0.25) +
+  facet_wrap(~ actarm)
+
+Trial2 %>% 
+  ggplot(aes(lbdy, lbstresn)) +
+  geom_point(size = 0.5, alpha = 0.25) +
+  geom_line(aes(group = usubjid), alpha = 0.25) +
+  facet_wrap(~ actarm)
+
+Trial3 %>% 
+  ggplot(aes(lbdy, lbstresn)) +
+  geom_point(size = 0.5, alpha = 0.25) +
+  geom_line(aes(group = usubjid), alpha = 0.25) +
+  facet_wrap(~ actarm)
+
+##There are arms with small numbers of patients
+#Get rid of these arms and replot to check the dataframe only contains large no of patients
+
+Trial1A <- Trial1 %>% 
+  count(actarm) %>% 
+  filter(n > 30) %>% 
+  select(-n) %>% 
+  left_join(Trial1, by = "actarm")
+
+Trial1A %>% 
+  ggplot(aes(lbdy, lbstresn)) +
+  geom_point(size = 0.5, alpha = 0.25) +
+  geom_line(aes(group = usubjid), alpha = 0.25) +
+  geom_smooth(alpha = 0.25) +
+  geom_smooth(method = "lm", color = "forestgreen", size = 1, alpha = 0.5) +
+  facet_wrap(~ actarm)
+
+
+Trial2A <- Trial2 %>% 
+  count(actarm) %>% 
+  filter(n > 30) %>% 
+  select(-n) %>% 
+  left_join(Trial2, by = "actarm")
+
+Trial2A %>% 
+  ggplot(aes(lbdy, lbstresn)) +
+  geom_point(size = 0.5, alpha = 0.25) +
+  geom_line(aes(group = usubjid), alpha = 0.25) +
+  geom_smooth(alpha = 0.25) +
+  geom_smooth(method = "lm", color = "forestgreen", size = 1, alpha = 0.5) +
+  facet_wrap(~ actarm)
+
+Trial3A <- Trial3 %>% 
+  count(actarm) %>% 
+  filter(n > 30) %>% 
+  select(-n) %>% 
+  left_join(Trial3, by = "actarm")
+
+Trial3A %>% 
+  ggplot(aes(lbdy, lbstresn)) +
+  geom_point(size = 0.5, alpha = 0.25) +
+  geom_line(aes(group = usubjid), alpha = 0.25) +
+  geom_smooth(alpha = 0.25) +
+  geom_smooth(method = "lm", color = "forestgreen", size = 1, alpha = 0.5) +
+  facet_wrap(~ actarm)
+
+##Mixed effects modelling
+fit1 <- lme(lbstresn ~ lbdy + actarm + lbdy:actarm,
+           data = Trial1A, random = ~ 1 | usubjid
+)
+summary(fit1)
+
+fit2 <- lme(lbstresn ~ lbdy + actarm + lbdy:actarm,
+           data = Trial2A, random = ~ 1 | usubjid
+)
+summary(fit2)
+
+fit3 <- lme(lbstresn ~ lbdy + actarm + lbdy:actarm,
+           data = Trial3A, random = ~ 1 | usubjid
+)
+summary(fit3)
+
+#testing out using the first and last lab days on one trial as an alternative
+#Firstly, calculate the lbdy for the first day of dosing
+#Look for lbdy that is small or negative
+T1pre <- Trial1A %>%
+  select(
+    studyid, usubjid,
+    lbdy, lbstresn
+  ) %>%
+  filter(lbdy < 2) %>%
+  distinct() %>%
+  collect()
+
+# there might be more than one measurement days before treatment
+# eg one at screening and one at randomization
+# the one most recent to first day of treatment is selected ie the one closest to zero
+T1pre <- T1pre %>%
+  group_by(studyid, usubjid) %>%
+  mutate(lbdy_max = max(lbdy)) %>%
+  ungroup() %>%
+  filter(lbdy == lbdy_max) %>%
+  select(-lbdy_max) %>%
+  distinct()
+
+# however there could be more than one lab value on the selected day
+# aggregate by taking the mean
+T1pre <- T1pre %>%
+  group_by(studyid, usubjid, lbdy) %>%
+  summarise(lbstresn = mean(lbstresn, na.rm = TRUE)) %>%
+  ungroup()
+
+# just check for subjects lost in processing (some subjects drop out of trials)
+Trial1A %>% summarise(n_distinct(usubjid)) # 1527
+T1pre %>% summarise(n_distinct(usubjid)) # 1525
+
+#Then calculate the lbdy for last day of dosing by taking the differnce between the first and last dates of treatment 
+
+T1post <- Trial1A %>% 
+  mutate(
+    lbdy_last_treatment = as.numeric(
+      as.Date(rfxendtc) - as.Date(rfxstdtc)
+    ) + 1,
+    lbdy_diff = abs(lbdy - lbdy_last_treatment)
+  ) %>% 
+  group_by(usubjid) %>% 
+  mutate(lbdy_diff_min = min(lbdy_diff)) %>% 
+  ungroup() %>% 
+  filter(lbdy_diff == lbdy_diff_min) %>% 
+  select(studyid, usubjid, lbdy, lbstresn)
+
+# could be more than one lab value on the selected day
+# they are aggregated by taking the mean
+T1post <- T1post %>%
+  group_by(studyid, usubjid, lbdy) %>%
+  summarise(lbstresn = mean(lbstresn, na.rm = TRUE)) %>%
+  ungroup()
+
+# checking for subjects lost in this process
+T1post %>% summarise(n_distinct(usubjid)) # 1524
+
+#Then join the pre and post days together and join on to the full trial data.
+
+T1pp <- full_join(T1pre, T1post, by = c("studyid", "usubjid")) %>% 
+  rename(
+    lbdy_pre = lbdy.x,
+    lbdy_post = lbdy.y,
+    lbstresn_pre = lbstresn.x,
+    lbstresn_post = lbstresn.y
+  ) %>% 
+  mutate(
+    lbdy_diff = lbdy_post - lbdy_pre,
+    lbstresn_diff = lbstresn_post - lbstresn_pre
+  ) %>% 
+  left_join(
+    Trial1A %>% select(studyid, usubjid, sex, age, ageu, actarm) %>% distinct(),
+    by = c("studyid", "usubjid")
+  ) %>% 
+  select(
+    studyid, usubjid,
+    sex, age, ageu,
+    actarm,
+    lbdy_pre, lbstresn_pre,
+    lbdy_post, lbstresn_post,
+    lbdy_diff, lbstresn_diff
+  )
+rm(T1pre, T1post)
+
+#box plot to take a look at the data
+T1pp %>% ggplot(aes(actarm, lbstresn_diff)) +
+  geom_boxplot(varwidth = TRUE, notch = FALSE)
+
+#look at the differences numerically in a table
+
+T1pp %>% group_by(actarm) %>% 
+  summarise(
+    n = n(),
+    diff_mean = mean(lbstresn_diff, na.rm = TRUE),
+    diff_sd = sd(lbstresn_diff, na.rm = TRUE),
+    diff_median = median(lbstresn_diff, na.rm = TRUE),
+    diff_mad = mad(lbstresn_diff, na.rm = TRUE)
+  )
