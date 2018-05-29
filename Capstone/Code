@@ -1,3 +1,6 @@
+## Helen MacBain capstone project code
+#install packages 
+
 library(sparklyr)
 library(DBI)
 library(dplyr)
@@ -100,7 +103,7 @@ select(
 table1 <-                       
 investigate_variables_reduced %>% select(so_therapy_area, so_indications, so_study_phase, studyid, usubjid) %>% 
   distinct() %>% 
-  count(so_therapy_area, so_indications, so_study_phase, studyid)
+  count(so_therapy_area, so_indications, so_study_phase)
 
 #look to see if there are issues with key variables: glucose (lbstresn) and lab visit day (lbdy):
 
@@ -171,8 +174,8 @@ df <- Ph3join  %>% select(
   lbtest, lbspec,
   lborres, lborresu,
   lbstresn, lbstresu, lbstnrlo, lbstnrhi,
-  so_therapy_area, so_indications,
-  so_study_phase, so_abbreviated_title
+  so_therapy_area.x, so_indications.x,
+  so_study_phase.x, so_abbreviated_title.x
 ) %>%
   collect() %>%
   filter(lbdy > -300) %>% # filtering out strange values that were identified in the lab day
@@ -191,26 +194,36 @@ df %>%
 
 df %>% 
   ggplot(aes(lbdy, "")) +
-  geom_jitter(alpha = 0.25)
+  geom_jitter(alpha = 0.25) + 
+  labs(x = "Lab day", title = "Jitter plot of the variable lab day") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 df %>% 
   ggplot(aes(lbdy)) +
-  geom_density()
+  geom_density() +
+labs(x = "Lab day", title = "Density plot of the variable lab day") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 df %>% 
   ggplot(aes(lbstresn, "")) +
-  geom_jitter(alpha = 0.25)
+  geom_jitter(alpha = 0.25) +
+  labs(x = "Glucose", title = "Jitter plot of the variable glucose") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
 
 df %>% 
   ggplot(aes(lbstresn)) +
-  geom_density()
+  geom_density() + 
+  labs(x = "Glucose", title = "Density plot of the variable glucose") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
 
 
 #Pick the three trials with the most patients for investigation
 table2 <-                       
-  df %>% select(so_therapy_area, so_indications, so_study_phase, studyid, usubjid) %>% 
+  df %>% select(so_therapy_area.x, so_indications.x, so_study_phase.x, studyid, usubjid) %>% 
   distinct() %>% 
-  count(so_therapy_area, so_indications, so_study_phase, studyid)
+  count(so_therapy_area.x, so_indications.x, so_study_phase.x, studyid)
 
 Trial1 <- df %>% 
   filter(studyid == "DB2113373")
@@ -227,19 +240,26 @@ Trial1 %>%
   ggplot(aes(lbdy, lbstresn)) +
   geom_point(size = 0.5, alpha = 0.25) +
   geom_line(aes(group = usubjid), alpha = 0.25) +
-  facet_wrap(~ actarm)
+  facet_wrap(~ actarm) +
+  labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 1") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 Trial2 %>% 
   ggplot(aes(lbdy, lbstresn)) +
   geom_point(size = 0.5, alpha = 0.25) +
   geom_line(aes(group = usubjid), alpha = 0.25) +
-  facet_wrap(~ actarm)
+  facet_wrap(~ actarm) +
+  labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 2") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
 
 Trial3 %>% 
   ggplot(aes(lbdy, lbstresn)) +
   geom_point(size = 0.5, alpha = 0.25) +
   geom_line(aes(group = usubjid), alpha = 0.25) +
-  facet_wrap(~ actarm)
+  facet_wrap(~ actarm) +
+  labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 3") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 ##There are arms with small numbers of patients
 #Get rid of these arms and replot to check the dataframe only contains large no of patients
@@ -256,7 +276,9 @@ Trial1A %>%
   geom_line(aes(group = usubjid), alpha = 0.25) +
   geom_smooth(alpha = 0.25) +
   geom_smooth(method = "lm", color = "forestgreen", size = 1, alpha = 0.5) +
-  facet_wrap(~ actarm)
+  facet_wrap(~ actarm) + 
+  labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 1", subtitle = "arms with less than 30 patients removed and line of best fit added") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 
 Trial2A <- Trial2 %>% 
@@ -271,7 +293,11 @@ Trial2A %>%
   geom_line(aes(group = usubjid), alpha = 0.25) +
   geom_smooth(alpha = 0.25) +
   geom_smooth(method = "lm", color = "forestgreen", size = 1, alpha = 0.5) +
-  facet_wrap(~ actarm)
+  facet_wrap(~ actarm) +
+  labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 2", subtitle = "arms with less than 30 patients removed and line of best fit added") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+
 
 Trial3A <- Trial3 %>% 
   count(actarm) %>% 
@@ -285,7 +311,11 @@ Trial3A %>%
   geom_line(aes(group = usubjid), alpha = 0.25) +
   geom_smooth(alpha = 0.25) +
   geom_smooth(method = "lm", color = "forestgreen", size = 1, alpha = 0.5) +
-  facet_wrap(~ actarm)
+  facet_wrap(~ actarm) + 
+  labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 3", subtitle = "arms with less than 30 patients removed and line of best fit added") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+
 
 ##Mixed effects modelling
 fit1 <- lme(lbstresn ~ lbdy + actarm + lbdy:actarm,
@@ -391,7 +421,9 @@ rm(T1pre, T1post)
 
 #box plot to take a look at the data
 T1pp %>% ggplot(aes(actarm, lbstresn_diff)) +
-  geom_boxplot(varwidth = TRUE, notch = FALSE)
+  geom_boxplot(varwidth = TRUE, notch = FALSE) + 
+  labs(x = "Study arm", y = "Difference in glucose on first and last day of treatment", title = "Box plot of difference between glucose on first and last day of dosing", subtitle = "For all patients in trial 1") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 #look at the differences numerically in a table
 
