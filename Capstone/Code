@@ -235,34 +235,42 @@ Trial3 <- df %>%
   filter(studyid == "HZC102871")
 
 #Take a look at the glucose measurements in each arm of the trials
+#before doing so create a vector for the different treatment arms that will act as the facet labelling (treatment arm details hidden in final chart output)
+
+trial1labs <- c('PLACEBO' = "placebo", 'PLACEBO & UMEC 62.5' = "treatment 1", 'UMEC 62.5' = "treatment 2", 'UMEC 62.5 & PLACEBO' = "treatment 3", 'UMEC 62.5 & UMEC/VI 62.5/25' = "treatment 4", 'UMEC/VI 62.5/25' = "treatment 5", 'UMEC/VI 62.5/25 & UMEC 62.5' = "treatment 6", 'VI 25' = "treatment 7")
 
 Trial1 %>% 
   ggplot(aes(lbdy, lbstresn)) +
   geom_point(size = 0.5, alpha = 0.25) +
   geom_line(aes(group = usubjid), alpha = 0.25) +
-  facet_wrap(~ actarm) +
+  facet_wrap(~ actarm, labeller = as_labeller(trial1labs)) +
   labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 1") +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+trial2labs <- c('FF/VI 100/25' = "treatment 1", 'FF/VI 100/25 & FF/VI 50/25' = "treatment 2", 'FF/VI 100/25 & VI 25' = "treatment 3", 'FF/VI 200/25' = "treatment 4", 'FF/VI 200/25 & FF/VI 100/25' = "treatment 5", 'FF/VI 50/25' = "treatment 6", 'FF/VI 50/25 & FF/VI 200/25' = "treatment 7", 'FF/VI 50/25 & VI 25' = "treatment 8", 'VI 25' = "treatment 9", 'VI 25 & FF/VI 200/25' = "treatment 10")
 
 Trial2 %>% 
   ggplot(aes(lbdy, lbstresn)) +
   geom_point(size = 0.5, alpha = 0.25) +
   geom_line(aes(group = usubjid), alpha = 0.25) +
-  facet_wrap(~ actarm) +
+  facet_wrap(~ actarm, labeller = as_labeller(trial2labs)) +
   labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 2") +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
+
+trial3labs <- c('FF/VI 100/25' = "treatment 1", 'FF/VI 100/25 & FF/VI 200/25' = "treatment 2", 'FF/VI 100/25 & FF/VI 50/25' = "treatment 3", 'FF/VI 100/25 & VI 25' = "treatment 4", 'FF/VI 200/25' = "treatment 5", 'FF/VI 50/25' = "treatment 6", 'FF/VI 50/25 & FF/VI 200/25' = "treatment 7", 'FF/VI 50/25 & VI 25' = "treatment 8", 'VI 25' = "treatment 9", 'VI 25 & FF/VI 100/25' = "treatment 10", 'VI 25 & FF/VI 50/25' = "treatment 11")
 
 Trial3 %>% 
   ggplot(aes(lbdy, lbstresn)) +
   geom_point(size = 0.5, alpha = 0.25) +
   geom_line(aes(group = usubjid), alpha = 0.25) +
-  facet_wrap(~ actarm) +
+  facet_wrap(~ actarm, labeller = as_labeller(trial3labs)) +
   labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 3") +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 ##There are arms with small numbers of patients
 #Get rid of these arms and replot to check the dataframe only contains large no of patients
+#Again, create labels to hide details of treatment arm dosages from final chart output
 
 Trial1A <- Trial1 %>% 
   count(actarm) %>% 
@@ -270,13 +278,15 @@ Trial1A <- Trial1 %>%
   select(-n) %>% 
   left_join(Trial1, by = "actarm")
 
+trial1Alabs <- c('PLACEBO' = "placebo", 'UMEC 62.5' = "treatment 1", 'UMEC/VI 62.5/25' = "treatment 2", 'VI 25' = "treatment 3")
+
 Trial1A %>% 
   ggplot(aes(lbdy, lbstresn)) +
   geom_point(size = 0.5, alpha = 0.25) +
   geom_line(aes(group = usubjid), alpha = 0.25) +
   geom_smooth(alpha = 0.25) +
   geom_smooth(method = "lm", color = "forestgreen", size = 1, alpha = 0.5) +
-  facet_wrap(~ actarm) + 
+  facet_wrap(~ actarm, labeller = as_labeller(trial1Alabs)) + 
   labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 1", subtitle = "arms with less than 30 patients removed and line of best fit added") +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
@@ -287,13 +297,15 @@ Trial2A <- Trial2 %>%
   select(-n) %>% 
   left_join(Trial2, by = "actarm")
 
+trial2Alabs <- c('FF/VI 100/25' = "treatment 1", 'FF/VI 200/25' = "treatment 2", 'FF/VI 50/25' = "treatment 3", 'VI 25' = "treatment 4")
+
 Trial2A %>% 
   ggplot(aes(lbdy, lbstresn)) +
   geom_point(size = 0.5, alpha = 0.25) +
   geom_line(aes(group = usubjid), alpha = 0.25) +
   geom_smooth(alpha = 0.25) +
   geom_smooth(method = "lm", color = "forestgreen", size = 1, alpha = 0.5) +
-  facet_wrap(~ actarm) +
+  facet_wrap(~ actarm, labeller = as_labeller(trial2Alabs)) +
   labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 2", subtitle = "arms with less than 30 patients removed and line of best fit added") +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
@@ -305,13 +317,15 @@ Trial3A <- Trial3 %>%
   select(-n) %>% 
   left_join(Trial3, by = "actarm")
 
+trial3Alabs <- c('FF/VI 100/25' = "treatment 1", 'FF/VI 200/25' = "treatment 2", 'FF/VI 50/25' = "treatment 3", 'VI 25' = "treatment 4")
+
 Trial3A %>% 
   ggplot(aes(lbdy, lbstresn)) +
   geom_point(size = 0.5, alpha = 0.25) +
   geom_line(aes(group = usubjid), alpha = 0.25) +
   geom_smooth(alpha = 0.25) +
   geom_smooth(method = "lm", color = "forestgreen", size = 1, alpha = 0.5) +
-  facet_wrap(~ actarm) + 
+  facet_wrap(~ actarm, labeller = as_labeller(trial3Alabs)) + 
   labs(y = "Glucose (mmol/L)", x = "Trial day", title = "Glucose versus time for different arms of trial 3", subtitle = "arms with less than 30 patients removed and line of best fit added") +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
@@ -423,6 +437,7 @@ rm(T1pre, T1post)
 T1pp %>% ggplot(aes(actarm, lbstresn_diff)) +
   geom_boxplot(varwidth = TRUE, notch = FALSE) + 
   labs(x = "Study arm", y = "Difference in glucose on first and last day of treatment", title = "Box plot of difference between glucose on first and last day of dosing", subtitle = "For all patients in trial 1") +
+  scale_x_discrete(labels=c("placebo", "treatment 1", "treatment 2", "treatment3")) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
 
 #look at the differences numerically in a table
