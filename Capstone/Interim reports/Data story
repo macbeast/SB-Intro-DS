@@ -1,0 +1,220 @@
+## Helen MacBain capstone project code
+#install packages 
+
+library(sparklyr)
+library(DBI)
+library(dplyr)
+library(ggplot2)
+library(nlme)
+
+
+#Create a connection to the GSK RDIP platform
+config <- spark_config()
+config$"sparklyr.shell.executor-memory" <- "10g"
+config$"sparklyr.shell.driver-memory" <- "10g"
+config$spark.executor.memory <- "10g"
+config$spark.yarn.am.memory <- "10g"
+
+con <- spark_connect(
+  master = "yarn-client",
+  spark_home = "/opt/cloudera/parcels/SPARK2/lib/spark2",
+  version = "2.1.0",
+  config = config
+)
+
+#Take a look at the databases on the platform and identify the tables that are needed in the correct database (clntrl_e)
+dbGetQuery(con, "show databases like 'clntrl*'")
+#                   databaseName
+# 1                       clntrl
+# 2              clntrl_baseline
+# 3            clntrl_baseline_e
+# 4                     clntrl_e
+# 5                   clntrl_ops
+# ...
+
+
+dbGetQuery(con, "show tables in clntrl_e")
+#    database                    tableName isTemporary
+# 1  clntrl_e t_anon_int_sdtm_dm_21jul2017       FALSE
+# 2  clntrl_e t_anon_int_sdtm_ds_25sep2017       FALSE
+# 3  clntrl_e t_anon_int_sdtm_dv_25sep2017       FALSE
+# 4  clntrl_e t_anon_int_sdtm_lb_25sep2017       FALSE
+# 5  clntrl_e t_anon_int_sdtm_re_25sep2017       FALSE
+# 6  clntrl_e t_anon_int_sdtm_sv_25sep2017       FALSE
+# 7  clntrl_e     t_anon_sdtm_dm_21jul2017       FALSE
+# 8  clntrl_e     t_anon_sdtm_ds_25sep2017       FALSE
+# 9  clntrl_e     t_anon_sdtm_dv_25sep2017       FALSE
+# 10 clntrl_e     t_anon_sdtm_lb_25sep2017       FALSE
+# ...
+
+
+#Get a feel for the size of the tables:
+
+dbGetQuery(con, "
+  select count(*)
+           from clntrl_e.t_anon_int_sdtm_lb_25sep2017
+           ")
+#   count(1)
+# 1  2349886
+
+dbGetQuery(con, "
+  select count(*)
+           from clntrl_e.t_anon_int_sdtm_dm_21jul2017
+           ")
+#count(1)
+# 1    86925
+
+#Check how many of the rows are a Glucose test
+
+dbGetQuery(con, "
+           select count(*) as n
+           from clntrl_e.t_anon_int_sdtm_lb_25sep2017
+           where lbtest = 'Glucose'
+           ")
+#       n
+# 1 92585
+
+#Create a dataframe in R of only Glucose tests from the lb table
+
+investigate_variables <- dbGetQuery(con, "
+                select *
+                from clntrl_e.t_anon_int_sdtm_lb_25sep2017
+                where lbtest = 'Glucose'
+")
+
+#Filter out variables that are not required (including where glucose test has been conducted in Urine)
+
+investigate_variables_reduced <- investigate_variables %>%
+  
+select(
+  studyid, usubjid,
+  lbdy, lbdtc, visit,
+  lbtest, lbspec,
+  lborres, lborresu,
+  lbstresn, lbstresu, lbstnrlo, lbstnrhi,
+  so_therapy_area, so_indications,
+  so_study_phase, so_abbreviated_title
+  ) %>%
+  collect() %>%
+  filter(lbspec != "URINE") 
+
+## Look at how many studies there are and how many patients are in each one
+
+table1 <-                       
+investigate_variables_reduced %>% select(so_therapy_area, so_indications, so_study_phase, studyid, usubjid) %>% 
+  distinct() %>% 
+  count(so_therapy_area, so_indications, so_study_phase)
+
+#look to see if there are issues with key variables: glucose (lbstresn) and lab visit day (lbdy):
+
+summary(investigate_variables_reduced$lbdy)
+#Min.    1st Qu.     Median       Mean    3rd Qu.       Max. 
+#-3.403e+38 -6.000e+00  5.800e+01 -1.605e+37  1.650e+02  4.480e+02 
+
+summary(investigate_variables_reduced$lbstresn)
+#Min.    1st Qu.     Median       Mean    3rd Qu.       Max. 
+#-3.403e+38  5.000e+00  5.000e+00 -7.095e+34  6.000e+00  2.160e+02 
+
+#There are clearly some issues with large and small values so these will need to be filtered out. 
+
+##Identifying the phase 3 studies and getting rid of mixed dosing
+
+#See how many different types of phase there are in the dataframe
+
+unique(investigate_variables_reduced$so_study_phase) 
+# "PHASE IIB"  "PHASE I"    "PHASE IIIA" "PHASE IIA"  "PHASE IIIB"
+
+#Create two dataframes, one of Phase IIIA, one of Phase IIIB
+
+P3A <- investigate_variables_reduced %>%  
+          filter(so_study_phase == "PHASE IIIA")
+            
+P3B <- investigate_variables_reduced %>%  
+      filter(so_study_phase == "PHASE IIIB")
+
+#Collect the study IDs for these Phase 3 trials:
+
+P3Aids <- summarise(P3A, n_distinct(studyid)) 
+P3Bids <- summarise(P3B, n_distinct(studyid)) 
+
+#Cross check these trial IDs on the clinicaltrials.gov website to see if they are mixed dosing
+#Create a vector of trial IDs that are not mixed dosing
+
+P3Trials <- c("200109", "HZA113714", "HZA113719", "AC4115408", "DB2113359", "DB2113373", "DB2113374", "DB2114634", "HZA116863", "HZC102871", "HZC102970", "HZC112206", "112207", "HZC113684")
+
+#Remove the mixed dosing trials from the dataframe: 
+Ph3dataframe <- investigate_variables_reduced[investigate_variables_reduced$studyid %in% P3Trials, ]
+
+##Add on demographic data 
+#The dm table sits on RDIP so the Phase III dataframe has to be written onto the platform in order to carry out the join
+
+#create table from dataframe 
+dbWriteTable(con, "Ph3table", Ph3dataframe)
+
+#Then bring both into R to do join
+dm <- tbl(con, "clntrl_e.t_anon_int_sdtm_dm_21jul2017")
+lb <- tbl(con, "Ph3table")
+
+#Join using studyid and usubjid - we want patient demographic data to be matched up to them in the Phase III dataframe
+#The match needs to be made on the study ID and on the patient ID (usubjid)
+
+Ph3join <- lb %>% 
+  left_join(dm, by = c("studyid", "usubjid")) %>%
+  collect()
+
+#Get rid of the unrequired variables from the dm table
+
+df <- Ph3join  %>% select(
+  studyid, usubjid,
+  sex,
+  age, ageu,
+  actarm,
+  rfxstdtc, rfxendtc,
+  lbdy, lbdtc, visit,
+  lbtest, lbspec,
+  lborres, lborresu,
+  lbstresn, lbstresu, lbstnrlo, lbstnrhi,
+  so_therapy_area.x, so_indications.x,
+  so_study_phase.x, so_abbreviated_title.x
+) %>%
+  collect() %>%
+  filter(lbdy > -300) %>% # filtering out strange values that were identified in the lab day
+  filter(lbstresn > -1)   # filtering out strange values that were identified in the glucose test
+
+#Check there's no NA values
+df %>% 
+  summarise(
+    n = n(),
+    lbdy_na = sum(is.na(lbdy)),
+    lbstresn_na = sum(is.na(lbstresn)),
+    actarm_na = sum(is.na(actarm))
+  )
+
+#Check to see if the two main variables now look as if they are in a sensible range
+
+df %>% 
+  ggplot(aes(lbdy, "")) +
+  geom_jitter(alpha = 0.25) + 
+  labs(x = "Lab day", title = "Jitter plot of the variable lab day") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+df %>% 
+  ggplot(aes(lbdy)) +
+  geom_density() +
+labs(x = "Lab day", title = "Density plot of the variable lab day") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+df %>% 
+  ggplot(aes(lbstresn, "")) +
+  geom_jitter(alpha = 0.25) +
+  labs(x = "Glucose", title = "Jitter plot of the variable glucose") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+
+df %>% 
+  ggplot(aes(lbstresn)) +
+  geom_density() + 
+  labs(x = "Glucose", title = "Density plot of the variable glucose") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+
